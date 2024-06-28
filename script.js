@@ -399,6 +399,7 @@ class Creature {
   }
 }
 
+
 function getInitialColor() {
   const initialColors = ['red', 'blue', 'yellow', 'green'];
   return initialColors[Math.floor(Math.random() * initialColors.length)];
