@@ -11,7 +11,7 @@ let totalDays = 0;
 let yearDuration = seasonDuration * 4; // 4 estaciones
 
 function setup() {
-  let canvas = createCanvas(1200, 600);
+  let canvas = createCanvas(1900, 800);
   canvas.parent('canvas-container');
   for (let i = 0; i < 30; i++) {
     creatures.push(new Creature(11)); // Aumentar tamaño inicial en un 10%
@@ -31,22 +31,24 @@ function draw() {
   updateTotalDays();
 
   // Controlar el respawn de comida
-  if (++foodRespawnCounter >= foodRespawnTime) {
+  foodRespawnCounter++;
+  if (foodRespawnCounter >= foodRespawnTime) {
     food.push(new Food());
     foodRespawnCounter = 0;
   }
 
   // Controlar el cambio de estación
-  if (++seasonCounter >= seasonDuration) {
+  seasonCounter++;
+  if (seasonCounter >= seasonDuration) {
     seasonCounter = 0;
     changeSeason();
   }
 
   // Mover y mostrar comida
-  food.forEach(f => {
+  for (let f of food) {
     f.move();
     f.show();
-  });
+  }
 
   // Contar criaturas por color
   let colorCounts = countColors(creatures);
@@ -59,18 +61,15 @@ function draw() {
     c.show();
     c.age();
     c.checkMitosis(colorCounts);
-  
+
     // Verificar si una criatura se come a otra
     for (let j = creatures.length - 1; j >= 0; j--) {
       if (i !== j && c.eatCreature(creatures[j])) {
         creatures.splice(j, 1);
-        if (j < i) i--; // Ajustar el índice si se elimina un elemento antes de la posición actual
         break;
       }
     }
   }
-  
-  
 
   displaySeason();
   displayDayAndCreatures();
@@ -79,11 +78,13 @@ function draw() {
 function countColors(creatures) {
   let colorCounts = {};
   for (let creature of creatures) {
-    colorCounts[creature.color] = (colorCounts[creature.color] || 0) + 1;
+    if (!colorCounts[creature.color]) {
+      colorCounts[creature.color] = 0;
+    }
+    colorCounts[creature.color]++;
   }
   return colorCounts;
 }
-
 
 function changeSeason() {
   const seasons = ["spring", "summer", "autumn", "winter"];
@@ -203,13 +204,14 @@ class Creature {
     this.speedMultiplier = speedMultiplier;
     this.species = species;
     this.energy = 100; // Energía inicial
-    this.olfatoRange = olfatoRange || map(this.size, this.minSize, 100, 50, 200); // Inicializar el rango del olfato
+    this.olfatoRange = olfatoRange || map(this.size, this.minSize, 100, 75, 250); // Aumentar ligeramente el rango del olfato
     this.lastDirection = createVector(0, 0); // Última dirección de movimiento
 
     if (brain) {
       this.brain = brain.clone();
     } else {
-      this.brain = new synaptic.Architect.Perceptron(20, 80, 2); // Ajustar la estructura de la red neuronal
+      // Aumentar la complejidad de la red neuronal
+      this.brain = new synaptic.Architect.Perceptron(20, 40, 40, 2); 
     }
 
     this.fitness = 0; // Recompensa inicial
@@ -325,6 +327,10 @@ class Creature {
     let output = this.brain.activate(inputs);
     let adjustment = p5.Vector.random2D().mult(map(output[0], 0, 1, -1, 1)); // Ajusta el movimiento basado en la red neuronal
 
+    if (this.energy < 50) {
+      speed *= 1.5; // Aumentar la velocidad si la energía es baja para simular desesperación
+    }
+
     if (closestPredator) {
       // Si hay un depredador cerca, huir de él
       let flee = p5.Vector.sub(this.pos, closestPredator.pos).setMag(speed);
@@ -383,11 +389,11 @@ class Creature {
 
     // Reducir energía basada en la distancia recorrida
     let distance = this.vel.mag();
-    this.energy -= distance * 0.07; // Reducir gasto energético en un 30%
+    this.energy -= distance * 0.08; // Reducir el gasto energético en un 30%
 
     // Penalización por tener baja energía para incentivar el ahorro
     if (this.energy < 50) {
-      this.fitness -= 0.1;
+      this.fitness -= 0.21; // Reducir la penalización por baja energía en un 30%
     }
 
     // Verificar si la energía es menor o igual a cero
@@ -407,14 +413,14 @@ class Creature {
       if (dist(this.pos.x, this.pos.y, food[i].pos.x, food[i].pos.y) < this.size) {
         if (food[i].type === "growth") {
           this.size += 4;
-          this.energy += 50; // Ganancia de energía por comer "growth" food
+          this.energy += 100; // Aumentar la ganancia de energía por comer "growth" food
         } else {
           this.size += 2;
-          this.energy += 25; // Ganancia de energía por comer "normal" food
+          this.energy += 50; // Aumentar la ganancia de energía por comer "normal" food
         }
         food.splice(i, 1);
         this.timeSinceLastMeal = 0;
-        this.fitness += 1; // Recompensa por comer
+        this.fitness += 2; // Aumentar la recompensa por comer
       }
     }
   }
@@ -424,8 +430,8 @@ class Creature {
       if (this.size > other.size) {
         this.size += other.size / 2;
         this.timeSinceLastMeal = 0;
-        this.fitness += 5; // Recompensa mayor por comer una criatura
-        this.energy += other.size * 10; // Incremento de energía basado en el tamaño de la criatura comida
+        this.fitness += 10; // Aumentar la recompensa por comer una criatura
+        this.energy += other.size * 20; // Incrementar la ganancia de energía por comer una criatura
         return true;
       }
     }
@@ -436,8 +442,8 @@ class Creature {
     this.lifeSpan -= 1;
     this.timeSinceLastMeal += 1;
 
-    if (this.timeSinceLastMeal > 2000) {
-      this.size -= 0.5;
+    if (this.timeSinceLastMeal > 1000) { // Reducir el tiempo para disminuir el tamaño si no comen
+      this.size -= 1; // Aumentar la reducción de tamaño
       this.timeSinceLastMeal = 0;
       if (this.size < this.minSize) {
         this.size = this.minSize;
@@ -454,52 +460,65 @@ class Creature {
 
   checkMitosis(colorCounts) {
     // Tamaño para hacer mitosis es 1.25 veces el tamaño actual
-    if (this.size < 37.5) return; // Salir temprano si no cumple el tamaño mínimo
-  
-    const numOffspringMap = {
-      "spring": 5,
-      "summer": 4,
-      "autumn": Math.random() < 0.5 ? 4 : 3,
-      "winter": 3
-    };
-  
-    const numOffspring = numOffspringMap[season] || 3;
-    const childSize = this.size * 0.90 / numOffspring;
-    const distance = this.size / 2; // Distancia para separar a los hijos
-  
-    for (let i = 0; i < numOffspring; i++) {
-      let childColor = this.color;
-      const mutationProbability = Math.min(0.1 * (colorCounts[this.color] || 0), 0.9);
-  
-      if (Math.random() < mutationProbability) {
-        if (currentMutationColor === null || mutationCount >= 10) {
-          currentMutationColor = getRandomColor();
-          mutationCount = 0;
-        }
-        childColor = currentMutationColor;
-        mutationCount++;
+    if (this.size >= 37.5) { // Incrementar el tamaño mínimo necesario para la mitosis
+      let numOffspring;
+      switch (season) {
+        case "spring":
+          numOffspring = 5; // En primavera nacen 5 individuos
+          break;
+        case "summer":
+          numOffspring = 4; // En verano nacen 4 individuos
+          break;
+        case "autumn":
+          numOffspring = random(1) < 0.5 ? 4 : 3; // En otoño 50% de probabilidades de 3 o 4 individuos
+          break;
+        case "winter":
+          numOffspring = 3; // En invierno nacen 3 individuos
+          break;
+        default:
+          numOffspring = 3;
       }
-  
-      const childBrain = this.brain.clone();
-      childBrain.mutate(); // Aplicar una mutación a la red neuronal del hijo
-  
-      const childOlfatoRange = this.olfatoRange * Math.random() * 0.2 + 0.9; // Mutar el rango del olfato
-  
-      // Generar una posición para el hijo
-      const angle = Math.random() * TWO_PI;
-      const childPos = createVector(this.pos.x + Math.cos(angle) * distance, this.pos.y + Math.sin(angle) * distance);
-      childPos.x = constrain(childPos.x, 0, width);
-      childPos.y = constrain(childPos.y, 0, height);
-  
-      creatures.push(new Creature(childSize, childPos, childColor, this.speedMultiplier, this.species, childBrain, childOlfatoRange));
-    }
-  
-    const index = creatures.indexOf(this);
-    if (index > -1) {
-      creatures.splice(index, 1); // Eliminar el progenitor
+
+      // Tamaño total resultante es 0.90 veces el tamaño del progenitor
+      let childSize = this.size * 0.90 / numOffspring;
+      let distance = this.size / 2; // Distancia para separar a los hijos
+
+      for (let i = 0; i < numOffspring; i++) {
+        let childColor = this.color;
+        let childSpeedMultiplier = this.speedMultiplier;
+        let mutationProbability = min(0.1 * colorCounts[this.color], 0.9);
+
+        if (random(1) < mutationProbability) {
+          if (currentMutationColor === null || mutationCount >= 10) {
+            currentMutationColor = getRandomColor();
+            mutationCount = 0;
+          }
+          childColor = currentMutationColor;
+          mutationCount++;
+        }
+
+        let childBrain = this.brain.clone();
+        childBrain.mutate(); // Aplicar una mutación a la red neuronal del hijo
+
+        // Mutar el rango del olfato
+        let childOlfatoRange = this.olfatoRange * random(0.95, 1.2); // Aumentar ligeramente el rango de mutación
+
+        // Generar una posición para el hijo
+        let angle = random(TWO_PI);
+        let childPos = createVector(this.pos.x + cos(angle) * distance, this.pos.y + sin(angle) * distance);
+        childPos.x = constrain(childPos.x, 0, width);
+        childPos.y = constrain(childPos.y, 0, height);
+
+        let child = new Creature(childSize, childPos, childColor, childSpeedMultiplier, this.species, childBrain, childOlfatoRange);
+        creatures.push(child);
+      }
+
+      let index = creatures.indexOf(this);
+      if (index > -1) {
+        creatures.splice(index, 1); // Eliminar el progenitor
+      }
     }
   }
-  
 
   show() {
     stroke(0);
@@ -532,7 +551,7 @@ function getRandomColor() {
 
 // Agregar métodos de mutación a la red neuronal
 synaptic.Neuron.prototype.mutate = function() {
-  const mutationRate = 0.1;
+  const mutationRate = 0.2; // Aumentar la tasa de mutación
   for (let i = 0; i < this.connections.projected.length; i++) {
     if (Math.random() < mutationRate) {
       this.connections.projected[i].weight += (Math.random() - 0.5) * 0.1;
