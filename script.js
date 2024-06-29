@@ -7,6 +7,9 @@ let mutationCount = 0;
 let season = "spring";
 let seasonCounter = 0;
 let seasonDuration = 3600; // 1 minuto en frames (60 FPS)
+let totalDays = 0;
+// Ajustamos la duración total del año en frames
+let yearDuration = seasonDuration * 4; // 4 estaciones
 
 function setup() {
   let canvas = createCanvas(800, 600);
@@ -21,6 +24,12 @@ function setup() {
 
 function draw() {
   setSeasonBackground(); // Establecer el fondo según la estación
+
+    // Mostrar días totales y número de criaturas
+    displayDayAndCreatures();
+
+    // Actualizar el contador de días
+    updateTotalDays();
 
   // Controlar el respawn de comida
   foodRespawnCounter++;
@@ -66,6 +75,7 @@ function draw() {
   displaySeason();
   displayLegend();
   displaySpeciesLegend();
+  displayDayAndCreatures();
 }
 
 function countColors(creatures) {
@@ -83,6 +93,7 @@ function changeSeason() {
   const seasons = ["spring", "summer", "autumn", "winter"];
   let currentSeasonIndex = seasons.indexOf(season);
   season = seasons[(currentSeasonIndex + 1) % seasons.length];
+  totalDays += 91; // Añadir 91 días por cada cambio de estación
 
   // Cambiar comportamiento según la estación
   switch (season) {
@@ -163,6 +174,18 @@ function displaySpeciesLegend() {
   }
 }
 
+function updateTotalDays() {
+  // Calcula los días totales basados en el frameCount y la duración de un año
+  totalDays = Math.floor(frameCount / (yearDuration / 365));
+}
+
+function displayDayAndCreatures() {
+  fill(0);
+  textSize(16);
+  text(`Days: ${totalDays}`, 10, 20);
+  text(`Creatures: ${creatures.length}`, 10, 40);
+}
+
 function countSpecies(creatures) {
   let speciesCounts = {};
   for (let creature of creatures) {
@@ -229,7 +252,7 @@ class Creature {
     if (brain) {
       this.brain = brain.clone();
     } else {
-      this.brain = new synaptic.Architect.Perceptron(15, 30, 2); // Ajustar la estructura de la red neuronal
+      this.brain = new synaptic.Architect.Perceptron(20, 40, 2); // Ajustar la estructura de la red neuronal
     }
 
     this.fitness = 0; // Recompensa inicial
@@ -252,6 +275,12 @@ class Creature {
     let closestPredatorDist = Infinity;
     let foodAttractionRange = 50; // Rango en el cual la comida es considerada atractiva durante una persecución
 
+    let totalFoodCount = 0; // Contador de comida cercana
+    let totalCreatureCount = 0; // Contador de criaturas cercanas
+    let averageSpeed = createVector(0, 0); // Velocidad promedio de las criaturas cercanas
+    let averageDirection = createVector(0, 0); // Dirección promedio de las criaturas cercanas
+    let averageEnergy = 0; // Energía promedio de las criaturas cercanas
+
     // Buscar la comida más cercana dentro del rango de olfato
     for (let f of food) {
       let d = dist(this.pos.x, this.pos.y, f.pos.x, f.pos.y);
@@ -262,6 +291,10 @@ class Creature {
         closestGrowthFoodDist = d;
         closestGrowthFood = f;
       }
+
+      if (d < this.olfatoRange) {
+        totalFoodCount++;
+      }
     }
 
     // Buscar el ser más cercano dentro del rango de olfato
@@ -269,6 +302,11 @@ class Creature {
       if (other !== this) {
         let d = dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y);
         if (d < this.olfatoRange) {
+          totalCreatureCount++;
+          averageSpeed.add(other.vel);
+          averageDirection.add(p5.Vector.sub(other.pos, this.pos));
+          averageEnergy += other.energy;
+
           if (other.size < this.size && d < closestPreyDist && other.color !== this.color) {
             closestPreyDist = d;
             closestPrey = other;
@@ -278,6 +316,12 @@ class Creature {
           }
         }
       }
+    }
+
+    if (totalCreatureCount > 0) {
+      averageSpeed.div(totalCreatureCount);
+      averageDirection.div(totalCreatureCount).normalize();
+      averageEnergy /= totalCreatureCount;
     }
 
     let baseSpeed = this.species.baseSpeed * this.speedMultiplier * frameRateMultiplier;
@@ -313,7 +357,12 @@ class Creature {
       this.lastDirection.heading() / TWO_PI, // Dirección actual
       this.timeSinceLastMeal / 2000, // Tiempo desde la última comida
       this.lifeSpan / 10000, // Edad normalizada
-      distanceToEdge / width // Distancia al borde más cercano
+      distanceToEdge / width, // Distancia al borde más cercano
+      totalFoodCount / 10, // Cantidad de comida cercana
+      totalCreatureCount / 10, // Cantidad de criaturas cercanas
+      averageSpeed.mag() / baseSpeed, // Velocidad promedio de las criaturas cercanas
+      averageDirection.heading() / TWO_PI, // Dirección promedio de las criaturas cercanas
+      averageEnergy / 100 // Energía promedio de las criaturas cercanas
     ];
 
     let output = this.brain.activate(inputs);
