@@ -12,7 +12,7 @@ function setup() {
   let canvas = createCanvas(800, 600);
   canvas.parent('canvas-container');
   for (let i = 0; i < 30; i++) {
-    creatures.push(new Creature());
+    creatures.push(new Creature(11)); // Aumentar tamaño inicial en un 10%
   }
   for (let i = 0; i < 50; i++) {
     food.push(new Food());
@@ -207,36 +207,60 @@ class Food {
   }
 }
 
+let frameRateMultiplier = 0.5; // Para ralentizar el sistema a la mitad
+
 class Creature {
-  constructor(size = 10, pos = createVector(random(width), random(height)), color = getInitialColor(), speedMultiplier = 1.0, species = getRandomSpecies()) {
+  constructor(size = 11, pos = createVector(random(width), random(height)), color = getInitialColor(), speedMultiplier = 1.0, species = getRandomSpecies(), brain = null, olfatoRange = null) {
     this.pos = pos;
-    this.vel = p5.Vector.random2D();
+    this.vel = createVector(0, 0);
+    this.acc = createVector(0, 0);
     this.size = size;
     this.color = color;
-    this.maxSize = 30;
     this.minSize = 5;
     this.lifeSpan = 10000;
     this.timeSinceLastMeal = 0;
     this.sprintCounter = 0;
     this.speedMultiplier = speedMultiplier;
     this.species = species;
+    this.energy = 100; // Energía inicial
+    this.olfatoRange = olfatoRange || map(this.size, this.minSize, 100, 50, 200); // Inicializar el rango del olfato
+    this.lastDirection = createVector(0, 0); // Última dirección de movimiento
+
+    if (brain) {
+      this.brain = brain.clone();
+    } else {
+      this.brain = new synaptic.Architect.Perceptron(15, 30, 2); // Ajustar la estructura de la red neuronal
+    }
+
+    this.fitness = 0; // Recompensa inicial
   }
 
+  // Método para aplicar fuerza
+  applyForce(force) {
+    this.acc.add(force);
+  }
+
+  // Método de movimiento (ajustado para el olfato)
   move(food, creatures) {
-    let closestFood = null;
-    let closestFoodDist = Infinity;
+    let closestNormalFood = null;
+    let closestNormalFoodDist = Infinity;
+    let closestGrowthFood = null;
+    let closestGrowthFoodDist = Infinity;
     let closestPrey = null;
     let closestPreyDist = Infinity;
     let closestPredator = null;
     let closestPredatorDist = Infinity;
-    let olfatoRange = map(this.size, this.minSize, this.maxSize, 50, 200);
+    let foodAttractionRange = 50; // Rango en el cual la comida es considerada atractiva durante una persecución
 
     // Buscar la comida más cercana dentro del rango de olfato
     for (let f of food) {
       let d = dist(this.pos.x, this.pos.y, f.pos.x, f.pos.y);
-      if (d < closestFoodDist && d < olfatoRange) {
-        closestFoodDist = d;
-        closestFood = f;
+      if (f.type === "normal" && d < closestNormalFoodDist && d < this.olfatoRange) {
+        closestNormalFoodDist = d;
+        closestNormalFood = f;
+      } else if (f.type === "growth" && d < closestGrowthFoodDist && d < this.olfatoRange) {
+        closestGrowthFoodDist = d;
+        closestGrowthFood = f;
       }
     }
 
@@ -244,7 +268,7 @@ class Creature {
     for (let other of creatures) {
       if (other !== this) {
         let d = dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y);
-        if (d < olfatoRange) {
+        if (d < this.olfatoRange) {
           if (other.size < this.size && d < closestPreyDist && other.color !== this.color) {
             closestPreyDist = d;
             closestPrey = other;
@@ -256,7 +280,7 @@ class Creature {
       }
     }
 
-    let baseSpeed = this.species.baseSpeed * this.speedMultiplier;
+    let baseSpeed = this.species.baseSpeed * this.speedMultiplier * frameRateMultiplier;
     let speed = baseSpeed;
     if (season === "winter") {
       speed *= 0.5; // Reducir la velocidad en invierno
@@ -264,11 +288,50 @@ class Creature {
       speed *= 1.2; // Aumentar la velocidad en verano
     }
 
+    // Indicar proximidad al borde
+    let edgeProximity = 0;
+    if (this.pos.x < 50 || this.pos.x > width - 50 || this.pos.y < 50 || this.pos.y > height - 50) {
+      edgeProximity = 1;
+      this.fitness -= 0.01; // Penalización por tocar el borde
+    }
+
+    // Calcular distancia al borde más cercano
+    let distanceToEdge = min(this.pos.x, width - this.pos.x, this.pos.y, height - this.pos.y);
+
+    // Agregar más parámetros a los inputs de la red neuronal
+    let inputs = [
+      closestNormalFood ? closestNormalFoodDist / this.olfatoRange : 1,
+      closestGrowthFood ? closestGrowthFoodDist / this.olfatoRange : 1,
+      closestPrey ? closestPreyDist / this.olfatoRange : 1,
+      closestPredator ? closestPredatorDist / this.olfatoRange : 1,
+      this.size / 100,
+      this.lifeSpan / 10000,
+      edgeProximity,
+      this.energy / 100, // Normalizar la energía
+      map(["spring", "summer", "autumn", "winter"].indexOf(season), 0, 3, 0, 1), // Normalizar la temporada
+      this.vel.mag() / baseSpeed, // Velocidad actual
+      this.lastDirection.heading() / TWO_PI, // Dirección actual
+      this.timeSinceLastMeal / 2000, // Tiempo desde la última comida
+      this.lifeSpan / 10000, // Edad normalizada
+      distanceToEdge / width // Distancia al borde más cercano
+    ];
+
+    let output = this.brain.activate(inputs);
+    let adjustment = p5.Vector.random2D().mult(map(output[0], 0, 1, -1, 1)); // Ajusta el movimiento basado en la red neuronal
+
     if (closestPredator) {
-      speed *= 1.5;
-      let flee = p5.Vector.sub(this.pos, closestPredator.pos);
-      flee.setMag(speed);
-      flee.rotate(random(-QUARTER_PI, QUARTER_PI));
+      // Si hay un depredador cerca, huir de él
+      let flee = p5.Vector.sub(this.pos, closestPredator.pos).setMag(speed);
+
+      // Desviarse hacia la comida si está dentro del rango de atracción durante la huida
+      if (closestNormalFood && dist(this.pos.x, this.pos.y, closestNormalFood.pos.x, closestNormalFood.pos.y) < foodAttractionRange) {
+        let towardsFood = p5.Vector.sub(closestNormalFood.pos, this.pos).setMag(speed * 0.5); // Movimiento hacia la comida, pero con prioridad menor que huir
+        flee.add(towardsFood);
+      } else if (closestGrowthFood && dist(this.pos.x, this.pos.y, closestGrowthFood.pos.x, closestGrowthFood.pos.y) < foodAttractionRange) {
+        let towardsFood = p5.Vector.sub(closestGrowthFood.pos, this.pos).setMag(speed * 0.5);
+        flee.add(towardsFood);
+      }
+
       let avoidEdge = createVector(0, 0);
       if (this.pos.x < 50) avoidEdge.add(createVector(1, 0));
       if (this.pos.x > width - 50) avoidEdge.add(createVector(-1, 0));
@@ -279,33 +342,58 @@ class Creature {
         flee.add(avoidEdge);
         flee.setMag(speed);
       }
-      this.vel = p5.Vector.lerp(this.vel, flee, 0.15);
-      if (this.pos.x < 50 || this.pos.x > width - 50 || this.pos.y < 50 || this.pos.y > height - 50) {
-        if (this.sprintCounter === 0) {
-          speed *= 1.5;
-          this.sprintCounter = 60;
-        }
-      }
+      this.applyForce(flee.add(adjustment).sub(this.vel).mult(0.1));
     } else if (closestPrey) {
-      let pursue = p5.Vector.sub(closestPrey.pos, this.pos);
-      pursue.setMag(speed);
-      this.vel = p5.Vector.lerp(this.vel, pursue, 0.15);
-    } else if (closestFood) {
-      let desired = p5.Vector.sub(closestFood.pos, this.pos);
-      desired.setMag(speed);
-      this.vel = p5.Vector.lerp(this.vel, desired, 0.15);
+      // Si hay una presa cerca, perseguirla
+      let pursue = p5.Vector.sub(closestPrey.pos, this.pos).setMag(speed);
+
+      // Desviarse hacia la comida si está dentro del rango de atracción durante la persecución
+      if (closestNormalFood && dist(this.pos.x, this.pos.y, closestNormalFood.pos.x, closestNormalFood.pos.y) < foodAttractionRange) {
+        let towardsFood = p5.Vector.sub(closestNormalFood.pos, this.pos).setMag(speed * 0.5); // Movimiento hacia la comida, pero con prioridad menor que perseguir
+        pursue.add(towardsFood);
+      } else if (closestGrowthFood && dist(this.pos.x, this.pos.y, closestGrowthFood.pos.x, closestGrowthFood.pos.y) < foodAttractionRange) {
+        let towardsFood = p5.Vector.sub(closestGrowthFood.pos, this.pos).setMag(speed * 0.5);
+        pursue.add(towardsFood);
+      }
+
+      this.applyForce(pursue.add(adjustment).sub(this.vel).mult(0.1));
+    } else if (closestNormalFood || closestGrowthFood) {
+      // Si no hay ni depredador ni presa, moverse hacia la comida
+      let closestFood = closestNormalFood || closestGrowthFood;
+      let desired = p5.Vector.sub(closestFood.pos, this.pos).setMag(speed);
+      this.applyForce(desired.add(adjustment).sub(this.vel).mult(0.1));
     } else {
-      this.vel.add(p5.Vector.random2D().mult(0.375));
-      this.vel.limit(baseSpeed);
+      // Si no hay nada cerca, moverse aleatoriamente
+      this.applyForce(p5.Vector.random2D().mult(0.05));
     }
 
-    if (this.sprintCounter > 0) {
-      this.sprintCounter--;
-    }
-
+    this.vel.add(this.acc);
+    this.vel.limit(speed);
     this.pos.add(this.vel);
+    this.acc.mult(0);
+
     this.pos.x = constrain(this.pos.x, 0, width);
     this.pos.y = constrain(this.pos.y, 0, height);
+
+    // Reducir energía basada en la distancia recorrida
+    let distance = this.vel.mag();
+    this.energy -= distance * 0.07; // Reducir gasto energético en un 30%
+
+    // Penalización por tener baja energía para incentivar el ahorro
+    if (this.energy < 50) {
+      this.fitness -= 0.1;
+    }
+
+    // Verificar si la energía es menor o igual a cero
+    if (this.energy <= 0) {
+      let index = creatures.indexOf(this);
+      if (index > -1) {
+        creatures.splice(index, 1); // Eliminar criatura si se queda sin energía
+      }
+    }
+
+    // Actualizar la última dirección de movimiento
+    this.lastDirection = this.vel.copy();
   }
 
   eat(food) {
@@ -313,14 +401,14 @@ class Creature {
       if (dist(this.pos.x, this.pos.y, food[i].pos.x, food[i].pos.y) < this.size) {
         if (food[i].type === "growth") {
           this.size += 4;
+          this.energy += 50; // Ganancia de energía por comer "growth" food
         } else {
           this.size += 2;
+          this.energy += 25; // Ganancia de energía por comer "normal" food
         }
         food.splice(i, 1);
         this.timeSinceLastMeal = 0;
-        if (this.size > this.maxSize) {
-          this.size = this.maxSize;
-        }
+        this.fitness += 1; // Recompensa por comer
       }
     }
   }
@@ -328,16 +416,10 @@ class Creature {
   eatCreature(other) {
     if (dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < this.size) {
       if (this.size > other.size) {
-        if (this.color === other.color) {
-          if (random(1) > 0.25) {
-            return false;
-          }
-        }
         this.size += other.size / 2;
         this.timeSinceLastMeal = 0;
-        if (this.size > this.maxSize) {
-          this.size = this.maxSize;
-        }
+        this.fitness += 5; // Recompensa mayor por comer una criatura
+        this.energy += other.size * 10; // Incremento de energía basado en el tamaño de la criatura comida
         return true;
       }
     }
@@ -365,29 +447,64 @@ class Creature {
   }
 
   checkMitosis(colorCounts) {
-    if (this.size >= this.maxSize) {
-      if (season !== "winter") {
-        let numOffspring = 2;
-        let childSize = this.size / numOffspring;
-        for (let i = 0; i < numOffspring; i++) {
-          let childColor = this.color;
-          let childSpeedMultiplier = this.speedMultiplier;
-          let mutationProbability = min(0.1 * colorCounts[this.color], 0.9);
-
-          if (random(1) < mutationProbability) {
-            if (currentMutationColor === null || mutationCount >= 10) {
-              currentMutationColor = getRandomColor();
-              mutationCount = 0;
-            }
-            childColor = currentMutationColor;
-            mutationCount++;
-          }
-
-          let child = new Creature(childSize, this.pos.copy(), childColor, childSpeedMultiplier, this.species);
-          creatures.push(child);
-        }
+    // Tamaño para hacer mitosis es 1.25 veces el tamaño actual
+    if (this.size >= 37.5) { // Incrementar el tamaño mínimo necesario para la mitosis
+      let numOffspring;
+      switch (season) {
+        case "spring":
+          numOffspring = 5; // En primavera nacen 5 individuos
+          break;
+        case "summer":
+          numOffspring = 4; // En verano nacen 4 individuos
+          break;
+        case "autumn":
+          numOffspring = random(1) < 0.5 ? 4 : 3; // En otoño 50% de probabilidades de 3 o 4 individuos
+          break;
+        case "winter":
+          numOffspring = 3; // En invierno nacen 3 individuos
+          break;
+        default:
+          numOffspring = 3;
       }
-      this.size /= 2;
+
+      // Tamaño total resultante es 0.90 veces el tamaño del progenitor
+      let childSize = this.size * 0.90 / numOffspring;
+      let distance = this.size / 2; // Distancia para separar a los hijos
+
+      for (let i = 0; i < numOffspring; i++) {
+        let childColor = this.color;
+        let childSpeedMultiplier = this.speedMultiplier;
+        let mutationProbability = min(0.1 * colorCounts[this.color], 0.9);
+
+        if (random(1) < mutationProbability) {
+          if (currentMutationColor === null || mutationCount >= 10) {
+            currentMutationColor = getRandomColor();
+            mutationCount = 0;
+          }
+          childColor = currentMutationColor;
+          mutationCount++;
+        }
+
+        let childBrain = this.brain.clone();
+        childBrain.mutate(); // Aplicar una mutación a la red neuronal del hijo
+
+        // Mutar el rango del olfato
+        let childOlfatoRange = this.olfatoRange * random(0.9, 1.1);
+
+        // Generar una posición para el hijo
+        let angle = random(TWO_PI);
+        let childPos = createVector(this.pos.x + cos(angle) * distance, this.pos.y + sin(angle) * distance);
+        childPos.x = constrain(childPos.x, 0, width);
+        childPos.y = constrain(childPos.y, 0, height);
+
+        let child = new Creature(childSize, childPos, childColor, childSpeedMultiplier, this.species, childBrain, childOlfatoRange);
+        creatures.push(child);
+      }
+
+      let index = creatures.indexOf(this);
+      if (index > -1) {
+        creatures.splice(index, 1); // Eliminar el progenitor
+      }
     }
   }
 
@@ -399,12 +516,13 @@ class Creature {
   }
 }
 
-
+// Función para obtener el color inicial
 function getInitialColor() {
   const initialColors = ['red', 'blue', 'yellow', 'green'];
   return initialColors[Math.floor(Math.random() * initialColors.length)];
 }
 
+// Función para obtener una especie aleatoria
 function getRandomSpecies() {
   const speciesList = [
     { name: 'fast', baseSpeed: 2.0 },
@@ -414,6 +532,30 @@ function getRandomSpecies() {
   return speciesList[Math.floor(Math.random() * speciesList.length)];
 }
 
+// Función para obtener un color aleatorio
 function getRandomColor() {
   return color(random(255), random(255), random(255));
 }
+
+// Agregar métodos de mutación a la red neuronal
+synaptic.Neuron.prototype.mutate = function() {
+  const mutationRate = 0.1;
+  for (let i = 0; i < this.connections.projected.length; i++) {
+    if (Math.random() < mutationRate) {
+      this.connections.projected[i].weight += (Math.random() - 0.5) * 0.1;
+    }
+  }
+};
+
+synaptic.Layer.prototype.mutate = function() {
+  for (let i = 0; i < this.list.length; i++) {
+    this.list[i].mutate();
+  }
+};
+
+synaptic.Network.prototype.mutate = function() {
+  for (let i = 0; i < this.layers.hidden.length; i++) {
+    this.layers.hidden[i].mutate();
+  }
+  this.layers.output.mutate();
+};
