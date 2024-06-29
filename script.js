@@ -11,7 +11,7 @@ let totalDays = 0;
 let yearDuration = seasonDuration * 4; // 4 estaciones
 
 function setup() {
-  let canvas = createCanvas(800, 600);
+  let canvas = createCanvas(1200, 600);
   canvas.parent('canvas-container');
   for (let i = 0; i < 30; i++) {
     creatures.push(new Creature(11)); // Aumentar tamaño inicial en un 10%
@@ -31,24 +31,22 @@ function draw() {
   updateTotalDays();
 
   // Controlar el respawn de comida
-  foodRespawnCounter++;
-  if (foodRespawnCounter >= foodRespawnTime) {
+  if (++foodRespawnCounter >= foodRespawnTime) {
     food.push(new Food());
     foodRespawnCounter = 0;
   }
 
   // Controlar el cambio de estación
-  seasonCounter++;
-  if (seasonCounter >= seasonDuration) {
+  if (++seasonCounter >= seasonDuration) {
     seasonCounter = 0;
     changeSeason();
   }
 
   // Mover y mostrar comida
-  for (let f of food) {
+  food.forEach(f => {
     f.move();
     f.show();
-  }
+  });
 
   // Contar criaturas por color
   let colorCounts = countColors(creatures);
@@ -61,32 +59,31 @@ function draw() {
     c.show();
     c.age();
     c.checkMitosis(colorCounts);
-
+  
     // Verificar si una criatura se come a otra
     for (let j = creatures.length - 1; j >= 0; j--) {
       if (i !== j && c.eatCreature(creatures[j])) {
         creatures.splice(j, 1);
+        if (j < i) i--; // Ajustar el índice si se elimina un elemento antes de la posición actual
         break;
       }
     }
   }
+  
+  
 
   displaySeason();
-  displayLegend();
-  displaySpeciesLegend();
   displayDayAndCreatures();
 }
 
 function countColors(creatures) {
   let colorCounts = {};
   for (let creature of creatures) {
-    if (!colorCounts[creature.color]) {
-      colorCounts[creature.color] = 0;
-    }
-    colorCounts[creature.color]++;
+    colorCounts[creature.color] = (colorCounts[creature.color] || 0) + 1;
   }
   return colorCounts;
 }
+
 
 function changeSeason() {
   const seasons = ["spring", "summer", "autumn", "winter"];
@@ -131,45 +128,6 @@ function setSeasonBackground() {
     case "winter":
       background(173, 216, 230); // Azul claro
       break;
-  }
-}
-
-function displayLegend() {
-  // Dibujar la leyenda fuera del canvas, a la derecha
-  fill(0);
-  textSize(16);
-  let startX = width + 10;
-  let startY = 20;
-
-  // Leyenda de tipos de comida
-  text("Food Types:", startX, startY);
-  fill(0, 255, 0);
-  ellipse(startX + 50, startY + 20, 10, 10);
-  fill(0);
-  text("Normal Food", startX + 70, startY + 25);
-
-  fill(255, 0, 0);
-  ellipse(startX + 50, startY + 50, 10, 10);
-  fill(0);
-  text("Growth Food", startX + 70, startY + 55);
-}
-
-function displaySpeciesLegend() {
-  let speciesCounts = countSpecies(creatures);
-
-  let startX = 10;
-  let startY = height + 20; // Below the canvas
-
-  // Dibujar la leyenda de especies
-  fill(0);
-  textSize(16);
-  text("Species:", startX, startY);
-
-  let offsetY = 25;
-
-  for (let species in speciesCounts) {
-    text(`${species}: ${speciesCounts[species]} - ${getSpeciesDescription(species)}`, startX, startY + offsetY);
-    offsetY += 20;
   }
 }
 
@@ -251,7 +209,7 @@ class Creature {
     if (brain) {
       this.brain = brain.clone();
     } else {
-      this.brain = new synaptic.Architect.Perceptron(20, 40, 2); // Ajustar la estructura de la red neuronal
+      this.brain = new synaptic.Architect.Perceptron(20, 80, 2); // Ajustar la estructura de la red neuronal
     }
 
     this.fitness = 0; // Recompensa inicial
@@ -496,65 +454,52 @@ class Creature {
 
   checkMitosis(colorCounts) {
     // Tamaño para hacer mitosis es 1.25 veces el tamaño actual
-    if (this.size >= 37.5) { // Incrementar el tamaño mínimo necesario para la mitosis
-      let numOffspring;
-      switch (season) {
-        case "spring":
-          numOffspring = 5; // En primavera nacen 5 individuos
-          break;
-        case "summer":
-          numOffspring = 4; // En verano nacen 4 individuos
-          break;
-        case "autumn":
-          numOffspring = random(1) < 0.5 ? 4 : 3; // En otoño 50% de probabilidades de 3 o 4 individuos
-          break;
-        case "winter":
-          numOffspring = 3; // En invierno nacen 3 individuos
-          break;
-        default:
-          numOffspring = 3;
-      }
-
-      // Tamaño total resultante es 0.90 veces el tamaño del progenitor
-      let childSize = this.size * 0.90 / numOffspring;
-      let distance = this.size / 2; // Distancia para separar a los hijos
-
-      for (let i = 0; i < numOffspring; i++) {
-        let childColor = this.color;
-        let childSpeedMultiplier = this.speedMultiplier;
-        let mutationProbability = min(0.1 * colorCounts[this.color], 0.9);
-
-        if (random(1) < mutationProbability) {
-          if (currentMutationColor === null || mutationCount >= 10) {
-            currentMutationColor = getRandomColor();
-            mutationCount = 0;
-          }
-          childColor = currentMutationColor;
-          mutationCount++;
+    if (this.size < 37.5) return; // Salir temprano si no cumple el tamaño mínimo
+  
+    const numOffspringMap = {
+      "spring": 5,
+      "summer": 4,
+      "autumn": Math.random() < 0.5 ? 4 : 3,
+      "winter": 3
+    };
+  
+    const numOffspring = numOffspringMap[season] || 3;
+    const childSize = this.size * 0.90 / numOffspring;
+    const distance = this.size / 2; // Distancia para separar a los hijos
+  
+    for (let i = 0; i < numOffspring; i++) {
+      let childColor = this.color;
+      const mutationProbability = Math.min(0.1 * (colorCounts[this.color] || 0), 0.9);
+  
+      if (Math.random() < mutationProbability) {
+        if (currentMutationColor === null || mutationCount >= 10) {
+          currentMutationColor = getRandomColor();
+          mutationCount = 0;
         }
-
-        let childBrain = this.brain.clone();
-        childBrain.mutate(); // Aplicar una mutación a la red neuronal del hijo
-
-        // Mutar el rango del olfato
-        let childOlfatoRange = this.olfatoRange * random(0.9, 1.1);
-
-        // Generar una posición para el hijo
-        let angle = random(TWO_PI);
-        let childPos = createVector(this.pos.x + cos(angle) * distance, this.pos.y + sin(angle) * distance);
-        childPos.x = constrain(childPos.x, 0, width);
-        childPos.y = constrain(childPos.y, 0, height);
-
-        let child = new Creature(childSize, childPos, childColor, childSpeedMultiplier, this.species, childBrain, childOlfatoRange);
-        creatures.push(child);
+        childColor = currentMutationColor;
+        mutationCount++;
       }
-
-      let index = creatures.indexOf(this);
-      if (index > -1) {
-        creatures.splice(index, 1); // Eliminar el progenitor
-      }
+  
+      const childBrain = this.brain.clone();
+      childBrain.mutate(); // Aplicar una mutación a la red neuronal del hijo
+  
+      const childOlfatoRange = this.olfatoRange * Math.random() * 0.2 + 0.9; // Mutar el rango del olfato
+  
+      // Generar una posición para el hijo
+      const angle = Math.random() * TWO_PI;
+      const childPos = createVector(this.pos.x + Math.cos(angle) * distance, this.pos.y + Math.sin(angle) * distance);
+      childPos.x = constrain(childPos.x, 0, width);
+      childPos.y = constrain(childPos.y, 0, height);
+  
+      creatures.push(new Creature(childSize, childPos, childColor, this.speedMultiplier, this.species, childBrain, childOlfatoRange));
+    }
+  
+    const index = creatures.indexOf(this);
+    if (index > -1) {
+      creatures.splice(index, 1); // Eliminar el progenitor
     }
   }
+  
 
   show() {
     stroke(0);
