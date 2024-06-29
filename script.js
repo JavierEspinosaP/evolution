@@ -8,7 +8,6 @@ let season = "spring";
 let seasonCounter = 0;
 let seasonDuration = 3600; // 1 minuto en frames (60 FPS)
 let totalDays = 0;
-// Ajustamos la duración total del año en frames
 let yearDuration = seasonDuration * 4; // 4 estaciones
 
 function setup() {
@@ -25,11 +24,11 @@ function setup() {
 function draw() {
   setSeasonBackground(); // Establecer el fondo según la estación
 
-    // Mostrar días totales y número de criaturas
-    displayDayAndCreatures();
+  // Mostrar días totales y número de criaturas
+  displayDayAndCreatures();
 
-    // Actualizar el contador de días
-    updateTotalDays();
+  // Actualizar el contador de días
+  updateTotalDays();
 
   // Controlar el respawn de comida
   foodRespawnCounter++;
