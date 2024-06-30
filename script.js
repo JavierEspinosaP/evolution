@@ -95,16 +95,16 @@ function changeSeason() {
   // Cambiar comportamiento según la estación
   switch (season) {
     case "spring":
-      foodRespawnTime = 10; // Mucha comida en primavera
+      foodRespawnTime = 15; // Mucha comida en primavera
       break;
     case "summer":
-      foodRespawnTime = 50; // Comida normal en verano
+      foodRespawnTime = 75; // Comida normal en verano
       break;
     case "autumn":
-      foodRespawnTime = 100; // Menos comida en otoño
+      foodRespawnTime = 150; // Menos comida en otoño
       break;
     case "winter":
-      foodRespawnTime = 200; // Mucho menos comida en invierno
+      foodRespawnTime = 300; // Mucho menos comida en invierno
       break;
   }
 }
@@ -256,26 +256,26 @@ class Creature {
       }
     }
 
-    // Buscar el ser más cercano dentro del rango de olfato
-    for (let other of creatures) {
-      if (other !== this) {
-        let d = dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y);
-        if (d < this.olfatoRange) {
-          totalCreatureCount++;
-          averageSpeed.add(other.vel);
-          averageDirection.add(p5.Vector.sub(other.pos, this.pos));
-          averageEnergy += other.energy;
+  // Buscar el ser más cercano dentro del rango de olfato
+  for (let other of creatures) {
+    if (other !== this && other.color !== this.color) { // Evitar detectar criaturas del mismo color
+      let d = dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y);
+      if (d < this.olfatoRange) {
+        totalCreatureCount++;
+        averageSpeed.add(other.vel);
+        averageDirection.add(p5.Vector.sub(other.pos, this.pos));
+        averageEnergy += other.energy;
 
-          if (other.size < this.size && d < closestPreyDist && other.color !== this.color) {
-            closestPreyDist = d;
-            closestPrey = other;
-          } else if (other.size > this.size && d < closestPredatorDist) {
-            closestPredatorDist = d;
-            closestPredator = other;
-          }
+        if (other.size < this.size && d < closestPreyDist) {
+          closestPreyDist = d;
+          closestPrey = other;
+        } else if (other.size > this.size && d < closestPredatorDist) {
+          closestPredatorDist = d;
+          closestPredator = other;
         }
       }
     }
+  }
 
     if (totalCreatureCount > 0) {
       averageSpeed.div(totalCreatureCount);
@@ -391,52 +391,55 @@ class Creature {
     let distance = this.vel.mag();
     this.energy -= distance * 0.08; // Reducir el gasto energético en un 30%
 
-    // Penalización por tener baja energía para incentivar el ahorro
-    if (this.energy < 50) {
-      this.fitness -= 0.21; // Reducir la penalización por baja energía en un 30%
-    }
+  // Penalización por tener baja energía para incentivar el ahorro
+  if (this.energy < 70) {
+    this.fitness -= 0.5; // Incrementar la penalización por baja energía
+  } else if (this.energy < 30) {
+    this.fitness -= 1.0; // Penalización aún más severa si la energía es muy baja
+  }
 
-    // Verificar si la energía es menor o igual a cero
-    if (this.energy <= 0) {
-      let index = creatures.indexOf(this);
-      if (index > -1) {
-        creatures.splice(index, 1); // Eliminar criatura si se queda sin energía
-      }
+  // Verificar si la energía es menor o igual a cero
+  if (this.energy <= 0) {
+    let index = creatures.indexOf(this);
+    if (index > -1) {
+      creatures.splice(index, 1); // Eliminar criatura si se queda sin energía
     }
+  }
 
     // Actualizar la última dirección de movimiento
     this.lastDirection = this.vel.copy();
   }
 
-  eat(food) {
-    for (let i = food.length - 1; i >= 0; i--) {
-      if (dist(this.pos.x, this.pos.y, food[i].pos.x, food[i].pos.y) < this.size) {
-        if (food[i].type === "growth") {
-          this.size += 4;
-          this.energy += 100; // Aumentar la ganancia de energía por comer "growth" food
-        } else {
-          this.size += 2;
-          this.energy += 50; // Aumentar la ganancia de energía por comer "normal" food
-        }
-        food.splice(i, 1);
-        this.timeSinceLastMeal = 0;
-        this.fitness += 2; // Aumentar la recompensa por comer
+eat(food) {
+  for (let i = food.length - 1; i >= 0; i--) {
+    if (dist(this.pos.x, this.pos.y, food[i].pos.x, food[i].pos.y) < this.size) {
+      if (food[i].type === "growth") {
+        this.size += 4;
+        this.energy += 200; // Aumentar significativamente la ganancia de energía por comer "growth" food
+      } else {
+        this.size += 2;
+        this.energy += 100; // Aumentar significativamente la ganancia de energía por comer "normal" food
       }
+      food.splice(i, 1);
+      this.timeSinceLastMeal = 0;
+      this.fitness += 10; // Aumentar significativamente la recompensa por comer
     }
   }
+}
 
-  eatCreature(other) {
-    if (dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < this.size) {
-      if (this.size > other.size) {
-        this.size += other.size / 2;
-        this.timeSinceLastMeal = 0;
-        this.fitness += 10; // Aumentar la recompensa por comer una criatura
-        this.energy += other.size * 20; // Incrementar la ganancia de energía por comer una criatura
-        return true;
-      }
+eatCreature(other) {
+  if (dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < this.size) {
+    if (this.size > other.size && this.color !== other.color) { // Evitar comer criaturas del mismo color
+      this.size += other.size / 2;
+      this.timeSinceLastMeal = 0;
+      this.fitness += 50; // Aumentar significativamente la recompensa por comer una criatura
+      this.energy += other.size * 50; // Incrementar significativamente la ganancia de energía por comer una criatura
+      return true;
     }
-    return false;
   }
+  return false;
+}
+
 
   age() {
     this.lifeSpan -= 1;
