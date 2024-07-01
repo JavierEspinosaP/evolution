@@ -44,10 +44,14 @@ function draw() {
     changeSeason();
   }
 
-  // Mover y mostrar comida
-  for (let f of food) {
+  // Mover y mostrar comida, y eliminar comida caducada
+  for (let i = food.length - 1; i >= 0; i--) {
+    let f = food[i];
     f.move();
     f.show();
+    if (f.age()) {
+      food.splice(i, 1); // Eliminar comida caducada
+    }
   }
 
   // Contar criaturas por color
@@ -101,10 +105,10 @@ function changeSeason() {
       foodRespawnTime = 75; // Comida normal en verano
       break;
     case "autumn":
-      foodRespawnTime = 150; // Menos comida en otoño
+      foodRespawnTime = 100; // Menos comida en otoño
       break;
     case "winter":
-      foodRespawnTime = 300; // Mucho menos comida en invierno
+      foodRespawnTime = 200; // Mucho menos comida en invierno
       break;
   }
 }
@@ -169,6 +173,7 @@ class Food {
     this.pos = createVector(random(width), random(height));
     this.type = random(["normal", "growth"]);
     this.vel = createVector(random(-0.125, 0.125), random(-0.125, 0.125));
+    this.lifeTime = 3600; // Vida de 1 minuto (60 FPS * 60 segundos)
   }
 
   move() {
@@ -179,6 +184,11 @@ class Food {
     this.pos.y = constrain(this.pos.y, 0, height);
   }
 
+  age() {
+    this.lifeTime--;
+    return this.lifeTime <= 0;
+  }
+
   show() {
     stroke(0);
     strokeWeight(1);
@@ -187,6 +197,7 @@ class Food {
     ellipse(this.pos.x, this.pos.y, 5, 5);
   }
 }
+
 
 let frameRateMultiplier = 0.5; // Para ralentizar el sistema a la mitad
 
@@ -256,26 +267,26 @@ class Creature {
       }
     }
 
-  // Buscar el ser más cercano dentro del rango de olfato
-  for (let other of creatures) {
-    if (other !== this && other.color !== this.color) { // Evitar detectar criaturas del mismo color
-      let d = dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y);
-      if (d < this.olfatoRange) {
-        totalCreatureCount++;
-        averageSpeed.add(other.vel);
-        averageDirection.add(p5.Vector.sub(other.pos, this.pos));
-        averageEnergy += other.energy;
+    // Buscar el ser más cercano dentro del rango de olfato
+    for (let other of creatures) {
+      if (other !== this && other.color !== this.color) { // Evitar detectar criaturas del mismo color
+        let d = dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y);
+        if (d < this.olfatoRange) {
+          totalCreatureCount++;
+          averageSpeed.add(other.vel);
+          averageDirection.add(p5.Vector.sub(other.pos, this.pos));
+          averageEnergy += other.energy;
 
-        if (other.size < this.size && d < closestPreyDist) {
-          closestPreyDist = d;
-          closestPrey = other;
-        } else if (other.size > this.size && d < closestPredatorDist) {
-          closestPredatorDist = d;
-          closestPredator = other;
+          if (other.size < this.size && d < closestPreyDist) {
+            closestPreyDist = d;
+            closestPrey = other;
+          } else if (other.size > this.size && d < closestPredatorDist) {
+            closestPredatorDist = d;
+            closestPredator = other;
+          }
         }
       }
     }
-  }
 
     if (totalCreatureCount > 0) {
       averageSpeed.div(totalCreatureCount);
@@ -327,19 +338,15 @@ class Creature {
     let output = this.brain.activate(inputs);
     let adjustment = p5.Vector.random2D().mult(map(output[0], 0, 1, -1, 1)); // Ajusta el movimiento basado en la red neuronal
 
-    if (this.energy < 50) {
-      speed *= 1.5; // Aumentar la velocidad si la energía es baja para simular desesperación
-    }
-
     if (closestPredator) {
       // Si hay un depredador cerca, huir de él
       let flee = p5.Vector.sub(this.pos, closestPredator.pos).setMag(speed);
 
       // Desviarse hacia la comida si está dentro del rango de atracción durante la huida
-      if (closestNormalFood && dist(this.pos.x, this.pos.y, closestNormalFood.pos.x, closestNormalFood.pos.y) < foodAttractionRange) {
+      if (closestNormalFood && dist(this.pos.x, this.pos.y, closestNormalFood.pos.x, this.pos.y) < foodAttractionRange) {
         let towardsFood = p5.Vector.sub(closestNormalFood.pos, this.pos).setMag(speed * 0.5); // Movimiento hacia la comida, pero con prioridad menor que huir
         flee.add(towardsFood);
-      } else if (closestGrowthFood && dist(this.pos.x, this.pos.y, closestGrowthFood.pos.x, closestGrowthFood.pos.y) < foodAttractionRange) {
+      } else if (closestGrowthFood && dist(this.pos.x, this.pos.y, closestGrowthFood.pos.x, this.pos.y) < foodAttractionRange) {
         let towardsFood = p5.Vector.sub(closestGrowthFood.pos, this.pos).setMag(speed * 0.5);
         flee.add(towardsFood);
       }
@@ -360,10 +367,10 @@ class Creature {
       let pursue = p5.Vector.sub(closestPrey.pos, this.pos).setMag(speed);
 
       // Desviarse hacia la comida si está dentro del rango de atracción durante la persecución
-      if (closestNormalFood && dist(this.pos.x, this.pos.y, closestNormalFood.pos.x, closestNormalFood.pos.y) < foodAttractionRange) {
+      if (closestNormalFood && dist(this.pos.x, this.pos.y, closestNormalFood.pos.x, this.pos.y) < foodAttractionRange) {
         let towardsFood = p5.Vector.sub(closestNormalFood.pos, this.pos).setMag(speed * 0.5); // Movimiento hacia la comida, pero con prioridad menor que perseguir
         pursue.add(towardsFood);
-      } else if (closestGrowthFood && dist(this.pos.x, this.pos.y, closestGrowthFood.pos.x, closestGrowthFood.pos.y) < foodAttractionRange) {
+      } else if (closestGrowthFood && dist(this.pos.x, this.pos.y, closestGrowthFood.pos.x, this.pos.y) < foodAttractionRange) {
         let towardsFood = p5.Vector.sub(closestGrowthFood.pos, this.pos).setMag(speed * 0.5);
         pursue.add(towardsFood);
       }
@@ -391,55 +398,54 @@ class Creature {
     let distance = this.vel.mag();
     this.energy -= distance * 0.08; // Reducir el gasto energético en un 30%
 
-  // Penalización por tener baja energía para incentivar el ahorro
-  if (this.energy < 70) {
-    this.fitness -= 0.5; // Incrementar la penalización por baja energía
-  } else if (this.energy < 30) {
-    this.fitness -= 1.0; // Penalización aún más severa si la energía es muy baja
-  }
-
-  // Verificar si la energía es menor o igual a cero
-  if (this.energy <= 0) {
-    let index = creatures.indexOf(this);
-    if (index > -1) {
-      creatures.splice(index, 1); // Eliminar criatura si se queda sin energía
+    // Penalización por tener baja energía para incentivar el ahorro
+    if (this.energy < 70) {
+      this.fitness -= 0.5; // Incrementar la penalización por baja energía
+    } else if (this.energy < 30) {
+      this.fitness -= 1.0; // Penalización aún más severa si la energía es muy baja
     }
-  }
+
+    // Verificar si la energía es menor o igual a cero
+    if (this.energy <= 0) {
+      let index = creatures.indexOf(this);
+      if (index > -1) {
+        creatures.splice(index, 1); // Eliminar criatura si se queda sin energía
+      }
+    }
 
     // Actualizar la última dirección de movimiento
     this.lastDirection = this.vel.copy();
   }
 
-eat(food) {
-  for (let i = food.length - 1; i >= 0; i--) {
-    if (dist(this.pos.x, this.pos.y, food[i].pos.x, food[i].pos.y) < this.size) {
-      if (food[i].type === "growth") {
-        this.size += 4;
-        this.energy += 200; // Aumentar significativamente la ganancia de energía por comer "growth" food
-      } else {
-        this.size += 2;
-        this.energy += 100; // Aumentar significativamente la ganancia de energía por comer "normal" food
+  eat(food) {
+    for (let i = food.length - 1; i >= 0; i--) {
+      if (dist(this.pos.x, this.pos.y, food[i].pos.x, food[i].pos.y) < this.size) {
+        if (food[i].type === "growth") {
+          this.size += 4;
+          this.energy += 200; // Aumentar significativamente la ganancia de energía por comer "growth" food
+        } else {
+          this.size += 2;
+          this.energy += 100; // Aumentar significativamente la ganancia de energía por comer "normal" food
+        }
+        food.splice(i, 1);
+        this.timeSinceLastMeal = 0;
+        this.fitness += 10; // Aumentar significativamente la recompensa por comer
       }
-      food.splice(i, 1);
-      this.timeSinceLastMeal = 0;
-      this.fitness += 10; // Aumentar significativamente la recompensa por comer
     }
   }
-}
 
-eatCreature(other) {
-  if (dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < this.size) {
-    if (this.size > other.size && this.color !== other.color) { // Evitar comer criaturas del mismo color
-      this.size += other.size / 2;
-      this.timeSinceLastMeal = 0;
-      this.fitness += 50; // Aumentar significativamente la recompensa por comer una criatura
-      this.energy += other.size * 50; // Incrementar significativamente la ganancia de energía por comer una criatura
-      return true;
+  eatCreature(other) {
+    if (dist(this.pos.x, this.pos.y, other.pos.x, other.pos.y) < this.size) {
+      if (this.size > other.size && this.color !== other.color) { // Evitar comer criaturas del mismo color
+        this.size += other.size / 2;
+        this.timeSinceLastMeal = 0;
+        this.fitness += 50; // Aumentar significativamente la recompensa por comer una criatura
+        this.energy += other.size * 50; // Incrementar significativamente la ganancia de energía por comer una criatura
+        return true;
+      }
     }
+    return false;
   }
-  return false;
-}
-
 
   age() {
     this.lifeSpan -= 1;
@@ -530,6 +536,73 @@ eatCreature(other) {
     ellipse(this.pos.x, this.pos.y, this.size, this.size);
   }
 }
+
+// Función para obtener el color inicial
+function getInitialColor() {
+  const initialColors = ['red', 'blue', 'yellow', 'green'];
+  return initialColors[Math.floor(Math.random() * initialColors.length)];
+}
+
+// Función para obtener una especie aleatoria
+function getRandomSpecies() {
+  const speciesList = [
+    { name: 'fast', baseSpeed: 2.0 },
+    { name: 'strong', baseSpeed: 1.0 },
+    { name: 'balanced', baseSpeed: 1.5 }
+  ];
+  return speciesList[Math.floor(Math.random() * speciesList.length)];
+}
+
+// Función para obtener un color aleatorio
+function getRandomColor() {
+  let newColor = color(random(255), random(255), random(255));
+  let newColorStr = newColor.toString();
+
+  // Si el color ya existe, generar otro
+  while (colorTraits[newColorStr]) {
+    newColor = color(random(255), random(255), random(255));
+    newColorStr = newColor.toString();
+  }
+
+  // Asignar características aleatorias al nuevo color
+  colorTraits[newColorStr] = createRandomTraits();
+
+  return newColorStr;
+}
+
+// Función para crear características aleatorias
+function createRandomTraits() {
+  return {
+    speedMultiplier: random(0.8, 1.5), // Velocidad entre 0.8x y 1.5x
+    energyConsumption: random(0.06, 0.15), // Consumo de energía entre 0.06 y 0.15
+    preyPreference: random(0.4, 0.7), // Preferencia por presas entre 0.4 y 0.7
+    foodPreference: random(0.3, 0.6) // Preferencia por comida entre 0.3 y 0.6
+  };
+}
+
+// Agregar métodos de mutación a la red neuronal
+synaptic.Neuron.prototype.mutate = function() {
+  const mutationRate = 0.2; // Aumentar la tasa de mutación
+  for (let i = 0; i < this.connections.projected.length; i++) {
+    if (Math.random() < mutationRate) {
+      this.connections.projected[i].weight += (Math.random() - 0.6) * 0.1; //tasa de mutacion
+    }
+  }
+};
+
+synaptic.Layer.prototype.mutate = function() {
+  for (let i = 0; i < this.list.length; i++) {
+    this.list[i].mutate();
+  }
+};
+
+synaptic.Network.prototype.mutate = function() {
+  for (let i = 0; i < this.layers.hidden.length; i++) {
+    this.layers.hidden[i].mutate();
+  }
+  this.layers.output.mutate();
+};
+
 
 // Función para obtener el color inicial
 function getInitialColor() {
