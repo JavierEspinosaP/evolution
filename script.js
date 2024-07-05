@@ -269,7 +269,7 @@ class Creature {
       this.brain = brain.clone();
     } else {
       // Ajustado para agregar el nuevo input y configurar 3 salidas
-      this.brain = new synaptic.Architect.Perceptron(17, 4, 4, 4, 3); 
+      this.brain = new synaptic.Architect.Perceptron(17, 7, 7, 7, 4); 
     }
 
     this.fitness = 0; // Recompensa inicial
@@ -391,19 +391,12 @@ class Creature {
     ];
 
     let output = this.brain.activate(inputs);
-    // Normalizar los valores de output antes de guardarlos en el historial
-    let normalizedOutput = output.map(value => normalize(value));
-// Cuando corra la simulacion, desnormalizar
-
-
-
-    // Salidas de la red neuronal: x, y, velocidad
-    let outputX = map(output[0], 0, 1, -1, 1);
-    let outputY = map(output[1], 0, 1, -1, 1);
-    let outputSpeed = map(output[2], 0, 1, 0, baseSpeed);
+    let actionVector = [0, 0, 0, 0];
+    let maxOutputIndex = output.indexOf(Math.max(...output));
+    actionVector[maxOutputIndex] = 1;
 
     // Vector de ajuste de la red neuronal
-    let adjustment = createVector(outputX, outputY).setMag(outputSpeed);
+    let adjustment = createVector(output[0], output[1]).setMag(output[2]);
 
     let action = "wander"; // Acción por defecto
 
@@ -579,13 +572,15 @@ class Creature {
     // Actualizar el input de desviación hacia la comida
     inputs[inputs.length - 1] = deviationToFood;
 
-    // Registrar el input y output en el historial
-    if (this.ageCounter % 60 === 0) {
-      this.actionHistory.push({
-        input: inputs,
-        output: normalizedOutput
-      });
-    }
+
+    //Descomentar para guardar historial
+    // Registrar el input y las acciones normalizadas en el historial
+    // if (this.ageCounter % 60 === 0) {
+    //   this.actionHistory.push({
+    //     input: inputs,
+    //     action: actionVector // Usar el actionVector normalizado
+    //   });
+    // }
   }
 
   eat(food) {
