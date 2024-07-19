@@ -1,0 +1,11 @@
+{
+  "name": "evolution",
+  "version": "1.0.0",
+  "description": "Este proyecto simula un ecosistema de criaturas utilizando redes neuronales. Las criaturas interactúan entre sí y con el entorno de manera autónoma, tomando decisiones basadas en su percepción del entorno. La simulación incluye características como reproducción, alimentación, mutación y adaptación a diferentes estaciones del año.",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}

@@ -239,10 +239,7 @@ class Creature {
     size = 11,
     pos = createVector(random(width), random(height)),
     color = getInitialColor(),
-    speedMultiplier = 1.0,
-    species = getRandomSpecies(),
-    brain = null,
-    olfatoRange = null
+    speedMultiplier = 1.0
   ) {
     this.pos = pos;
     this.vel = createVector(0, 0);
@@ -253,10 +250,8 @@ class Creature {
     this.lifeSpan = 10000;
     this.timeSinceLastMeal = 0;
     this.speedMultiplier = speedMultiplier;
-    this.species = species;
     this.energy = 100; // Energía inicial
-    this.olfatoRange =
-      olfatoRange || map(this.size, this.minSize, 100, 75, 250); // Aumentar ligeramente el rango del olfato
+    this.olfatoRange = map(this.size, this.minSize, 100, 75, 250); // Aumentar ligeramente el rango del olfato
     this.lastDirection = createVector(0, 0); // Última dirección de movimiento
     this.actionHistory = []; // Registro de acciones
     this.foodEaten = 0; // Comida consumida
@@ -264,15 +259,6 @@ class Creature {
     this.reproduced = false; // Si se ha reproducido
     this.ageCounter = 0; // Tiempo de existencia
     this.borderRepulsionAccum = createVector(0, 0); // Fuerza de repulsión acumulativa
-
-    if (brain) {
-      this.brain = brain.clone();
-    } else {
-      // Ajustado para agregar el nuevo input y configurar 3 salidas
-      this.brain = new synaptic.Architect.Perceptron(17, 7, 7, 7, 4); 
-    }
-
-    this.fitness = 0; // Recompensa inicial
   }
 
   // Método para aplicar fuerza
@@ -358,7 +344,7 @@ class Creature {
     }
 
     let baseSpeed =
-      this.species.baseSpeed * this.speedMultiplier * frameRateMultiplier;
+      1.5 * this.speedMultiplier * frameRateMultiplier;
     let speed = baseSpeed;
     if (season === "winter") {
       speed *= 0.5; // Reducir la velocidad en invierno
@@ -369,7 +355,6 @@ class Creature {
     // Inicializar el valor de desviación hacia la comida
     let deviationToFood = 0;
 
-    // Agregar más parámetros a los inputs de la red neuronal
     let inputs = [
       closestNormalFood ? closestNormalFoodDist / this.olfatoRange : 1,
       closestGrowthFood ? closestGrowthFoodDist / this.olfatoRange : 1,
@@ -390,15 +375,8 @@ class Creature {
       deviationToFood // Placeholder para la desviación hacia la comida
     ];
 
-    let output = this.brain.activate(inputs);
-    let actionVector = [0, 0, 0, 0];
-    let maxOutputIndex = output.indexOf(Math.max(...output));
-    actionVector[maxOutputIndex] = 1;
-
-    // Vector de ajuste de la red neuronal
-    let adjustment = createVector(output[0], output[1]).setMag(output[2]);
-
-    let action = "wander"; // Acción por defecto
+    // Acción por defecto
+    let action = "wander";
 
     // Penalización adicional por acercarse al borde
     let borderRepulsion = createVector(0, 0);
@@ -479,10 +457,10 @@ class Creature {
         p5.Vector.sub(flee, this.pos).mag()
       ) {
         this.applyForce(
-          fleeWithRepulsion.add(adjustment).sub(this.vel).mult(0.1)
+          fleeWithRepulsion.sub(this.vel).mult(0.1)
         );
       } else {
-        this.applyForce(flee.add(adjustment).sub(this.vel).mult(0.1));
+        this.applyForce(flee.sub(this.vel).mult(0.1));
       }
       action = "flee";
     } else if (closestPrey) {
@@ -512,21 +490,21 @@ class Creature {
         deviationToFood = p5.Vector.sub(towardsFood, this.pos).mag() / speed; // Normalizar la desviación
       }
 
-      this.applyForce(pursue.add(adjustment).sub(this.vel).mult(0.1));
+      this.applyForce(pursue.sub(this.vel).mult(0.1));
       action = "pursue";
     } else if (closestGrowthFood) {
       // Si hay comida growth, priorizarla
       let desired = p5.Vector.sub(closestGrowthFood.pos, this.pos).setMag(
         speed
       );
-      this.applyForce(desired.add(adjustment).sub(this.vel).mult(0.1));
+      this.applyForce(desired.sub(this.vel).mult(0.1));
       action = "seekGrowthFood";
     } else if (closestNormalFood) {
       // Si no hay comida growth, buscar comida normal
       let desired = p5.Vector.sub(closestNormalFood.pos, this.pos).setMag(
         speed
       );
-      this.applyForce(desired.add(adjustment).sub(this.vel).mult(0.1));
+      this.applyForce(desired.sub(this.vel).mult(0.1));
       action = "seekNormalFood";
     } else {
       // Si no hay nada cerca, moverse aleatoriamente
@@ -571,16 +549,6 @@ class Creature {
 
     // Actualizar el input de desviación hacia la comida
     inputs[inputs.length - 1] = deviationToFood;
-
-
-    //Descomentar para guardar historial
-    // Registrar el input y las acciones normalizadas en el historial
-    // if (this.ageCounter % 60 === 0) {
-    //   this.actionHistory.push({
-    //     input: inputs,
-    //     action: actionVector // Usar el actionVector normalizado
-    //   });
-    // }
   }
 
   eat(food) {
@@ -673,7 +641,6 @@ class Creature {
 
       for (let i = 0; i < numOffspring; i++) {
         let childColor = this.color;
-        let childSpeedMultiplier = this.speedMultiplier;
         let mutationProbability = min(0.1 * colorCounts[this.color], 0.9);
 
         if (random(1) < mutationProbability) {
@@ -685,9 +652,6 @@ class Creature {
           mutationCount++;
         }
 
-        let childBrain = this.brain.clone();
-        childBrain.mutate();
-
         // Generar una posición para el hijo
         let angle = random(TWO_PI);
         let childPos = createVector(
@@ -698,10 +662,7 @@ class Creature {
         let child = new Creature(
           childSize,
           childPos,
-          childColor,
-          childSpeedMultiplier,
-          this.species,
-          childBrain
+          childColor
         );
         creatures.push(child);
       }
@@ -725,6 +686,28 @@ class Creature {
     ellipse(this.pos.x, this.pos.y, this.olfatoRange * 2, this.olfatoRange * 2);
   }
 }
+
+// Función para obtener el color inicial
+function getInitialColor() {
+  const initialColors = ["red", "blue", "yellow", "green"];
+  return initialColors[Math.floor(Math.random() * initialColors.length)];
+}
+
+// Función para obtener un color aleatorio
+function getRandomColor() {
+  let newColor = color(random(255), random(255), random(255));
+  let newColorStr = newColor.toString();
+
+  // Si el color ya existe, generar otro
+  while (colorTraits[newColorStr]) {
+    newColor = color(random(255), random(255), random(255));
+    newColorStr = newColor.toString();
+  }
+
+  // Asignar solo el color sin características adicionales
+  return newColorStr;
+}
+
 
 // Función para obtener el color inicial
 function getInitialColor() {
