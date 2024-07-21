@@ -211,15 +211,6 @@ function updateAndDisplayCreatures() {
   }
 }
 
-function checkLongestLivingCreature() {
-  let maxAge = Math.max(...creatures.map(creature => creature.ageCounter));
-  if (maxAge > longestLivingDuration) {
-    longestLivingDuration = maxAge;
-    longestLivingCreatures = creatures.filter(creature => creature.ageCounter === maxAge);
-    console.log(`Nuevo récord de longevidad: ${longestLivingDuration} ticks`);
-  }
-}
-
 // Clase Food
 class Food {
   constructor() {
@@ -319,9 +310,14 @@ class Creature {
       season: ["spring", "summer", "autumn", "winter"].indexOf(season)
     };
 
+    let output = {
+      velX: this.vel.x,
+      velY: this.vel.y
+    };
+
     this.inputHistory.push(input);
-    this.outputHistory.push(action);
-    this.actionHistory.push({ input, output: action }); // Guardar en actionHistory también
+    this.outputHistory.push(output);
+    this.actionHistory.push({ input, output }); // Guardar en actionHistory también
   }
 
   findClosestEntities(food, creatures) {
@@ -465,6 +461,15 @@ class Creature {
   die() {
     let index = creatures.indexOf(this);
     if (index > -1) {
+      // Guardar la historia solo si esta criatura vivió más tiempo que la anterior
+      if (this.ageCounter > longestLivingDuration) {
+        longestLivingDuration = this.ageCounter;
+        longestLivingCreatures = [this];
+        history = [...this.actionHistory];
+        console.log(`Nuevo récord de longevidad: ${this.ageCounter} ticks`);
+      } else if (this.ageCounter === longestLivingDuration) {
+        longestLivingCreatures.push(this);
+      }
       creatures.splice(index, 1);
     }
   }
@@ -536,7 +541,7 @@ class Creature {
     for (let i = 0; i < numOffspring; i++) {
       let childColor = this.calculateChildColor(colorCounts);
       let childPos = this.generateChildPosition(distance);
-      let child = new Creature(childSize, childPos, childColor, 1.0, generateUniqueID());
+      let child = new Creature(childSize, childPos, childColor);
       creatures.push(child);
     }
 
@@ -579,19 +584,12 @@ class Creature {
     strokeWeight(1);
     fill(this.color);
     ellipse(this.pos.x, this.pos.y, this.size, this.size);
-
-    // Cambiar color del área del olfato si está en el array de criaturas más longevas
-    if (longestLivingCreatures.map(creature => creature.id).includes(this.id)) {
-        fill(255, 215, 0, 50); // Color dorado
+    
+    if (longestLivingCreatures.includes(this.id)) {
+      fill(255, 215, 0, 50); // Dorado translúcido
     } else {
-        fill(0, 0, 255, 20); // Color azul
+      fill(0, 0, 255, 20); // Azul translúcido
     }
-    noStroke();
-    ellipse(this.pos.x, this.pos.y, this.olfatoRange * 2, this.olfatoRange * 2);
-  }
-
-  drawOlfatoRange() {
-    fill(0, 0, 255, 20);
     noStroke();
     ellipse(this.pos.x, this.pos.y, this.olfatoRange * 2, this.olfatoRange * 2);
   }
@@ -608,14 +606,35 @@ function getRandomColor() {
   let newColorStr = newColor.toString();
 
   while (colorTraits[newColorStr]) {
-    newColor = color(random(255, random(255, 255)));
+    newColor = color(random(255), random(255), random(255));
     newColorStr = newColor.toString();
   }
 
   return newColorStr;
 }
 
-// Generar ID único para cada criatura
+// Generar IDs únicos
 function generateUniqueID() {
-  return ++creatureIDCounter;
+  return creatureIDCounter++;
+}
+
+// Verificar la criatura más longeva
+function checkLongestLivingCreature() {
+  let maxAge = 0;
+  longestLivingCreatures = [];
+
+  for (let creature of creatures) {
+    if (creature.ageCounter > maxAge) {
+      maxAge = creature.ageCounter;
+      longestLivingCreatures = [creature.id];
+    } else if (creature.ageCounter === maxAge) {
+      longestLivingCreatures.push(creature.id);
+    }
+  }
+
+  if (maxAge > longestLivingDuration) {
+    longestLivingDuration = maxAge;
+    history = creatures.find(c => c.ageCounter === maxAge).actionHistory;
+    console.log(`Nuevo récord de longevidad: ${maxAge} ticks`);
+  }
 }
