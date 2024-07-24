@@ -4,7 +4,7 @@ let season = "spring";
 let totalDays = 0;
 
 function setup() {
-    createCanvas(1900, 800);
+    createCanvas(1900, 800).parent('canvas-container');
     setupWebSocket();
 }
 
@@ -15,14 +15,33 @@ function draw() {
 }
 
 function setupWebSocket() {
-    const ws = new WebSocket('wss://evolution-backend-0r4z.onrender.com');
+    const ws = new WebSocket('ws://localhost:3000');
 
     ws.onmessage = event => {
-        const data = JSON.parse(event.data);
-        creatures = data.creatures;
-        food = data.food;
-        season = data.season;
-        totalDays = data.totalDays;
+        try {
+            if (event.data instanceof Blob) {
+                // Convierte el Blob en ArrayBuffer para poder descomprimir
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const data = new Uint8Array(reader.result);
+                    try {
+                        const decompressedData = pako.inflate(data, { to: 'string' });
+                        const parsedData = JSON.parse(decompressedData);
+                        creatures = parsedData.creatures || [];
+                        food = parsedData.food || [];
+                        season = parsedData.season || "spring";
+                        totalDays = parsedData.totalDays || 0;
+                    } catch (inflateError) {
+                        console.error('Error inflating or parsing data:', inflateError);
+                    }
+                };
+                reader.readAsArrayBuffer(event.data);
+            } else {
+                console.error('Received unexpected data type');
+            }
+        } catch (error) {
+            console.error('Error processing WebSocket message:', error);
+        }
     };
 
     ws.onopen = () => {
@@ -37,6 +56,7 @@ function setupWebSocket() {
         console.error('WebSocket error:', error);
     };
 }
+
 
 function setSeasonBackground() {
     switch (season) {
