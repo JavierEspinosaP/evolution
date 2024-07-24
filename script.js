@@ -15,7 +15,7 @@ function draw() {
 }
 
 function setupWebSocket() {
-    const ws = new WebSocket('ws://localhost:3000');
+    const ws = new WebSocket('wss://evolution-backend-0r4z.onrender.com');
 
     ws.onmessage = event => {
         try {
