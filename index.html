@@ -4,14 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simulación de Vida</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js"></script>
- <!-- Incluye pako para descompresión -->
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #282c34;
+    }
+    canvas {
+      border: 1px solid black;
+    }
+  </style>
 </head>
 <body>
-  <div id="canvas-container"></div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-  <script src="https://unpkg.com/flatted@latest/min.js"></script>
+  <canvas id="canvas"></canvas>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.4/pako.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
