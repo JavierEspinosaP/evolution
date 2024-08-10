@@ -10,7 +10,77 @@ let tempData = {
   totalDays: 0,
 };
 
+document.addEventListener("DOMContentLoaded", function() {
+  // Crear un elemento de texto temporal para medir el tamaño del título
+  const tempText = document.createElement('span');
+  tempText.style.fontFamily = 'Arial';
+  tempText.style.fontSize = '48px';
+  tempText.style.visibility = 'hidden';
+  tempText.innerText = "Virtual Fish Tank";
+  document.body.appendChild(tempText);
+
+  // Obtener las dimensiones del título
+  const titleWidth = tempText.offsetWidth;
+  const titleHeight = tempText.offsetHeight;
+  document.body.removeChild(tempText);
+
+  // Margen de 10px alrededor del canvas
+  const margin = 10;
+
+  // Crear una aplicación PIXI con el tamaño del título más el margen
+  const app = new PIXI.Application({ 
+      width: titleWidth + margin * 2, 
+      height: titleHeight + margin * 2, 
+      transparent: true ,
+      backgroundColor: 0x222222
+
+  });
+  
+  // Añadir el canvas de PIXI al DOM, detrás del título
+  const titleSection = document.querySelector('.titleSection');
+  titleSection.appendChild(app.view);
+  
+  // Crear un contenedor para el título
+  const container = new PIXI.Container();
+  app.stage.addChild(container);
+
+  // Crear el texto con PIXI
+  const text = new PIXI.Text("Virtual Fish Tank", {
+      fontFamily: 'Arial',
+      fontSize: 48,
+      fill: ['#f8b195', '#c06c84', '#355c7d'],
+      align: 'center',
+      stroke: '#ffffff',
+      // strokeThickness: 5
+  });
+  
+  // Posicionar el texto en el centro del canvas, respetando el margen
+  text.x = margin;  // Ajustar la posición horizontal con el margen
+  text.y = margin;  // Ajustar la posición vertical con el margen
+  container.addChild(text);
+
+  // Crear el filtro de desplazamiento (wave filter)
+  const displacementSprite = PIXI.Sprite.from('https://pixijs.io/examples/examples/assets/pixi-filters/displacement_map_repeat.jpg');
+  const displacementFilter = new PIXI.filters.DisplacementFilter(displacementSprite);
+
+  displacementSprite.texture.baseTexture.wrapMode = PIXI.WRAP_MODES.REPEAT;
+  app.stage.addChild(displacementSprite);
+
+  container.filters = [displacementFilter];
+
+  // Animar el filtro para crear el efecto de agua
+  app.ticker.add((delta) => {
+      displacementSprite.x += 1 * delta;
+      displacementSprite.y += 0.5 * delta;
+  });
+});
+
+
+
+
 (function () {
+
+  
     var canvas = document.getElementById("canvas"),
       ctx = canvas.getContext("2d"),
       width = 1280,
@@ -214,11 +284,11 @@ let tempData = {
 
         });
   
-        // Mostrar la estación y el total de días
-        ctx.fillStyle = "black";
-        ctx.font = "16px Arial";
-        ctx.fillText(`Season: ${season}`, 10, height - 30);
-        ctx.fillText(`Days: ${totalDays}`, 10, 30);
+        // // Mostrar la estación y el total de días
+        // ctx.fillStyle = "black";
+        // ctx.font = "16px Arial";
+        // ctx.fillText(`Season: ${season}`, 10, height - 30);
+        // ctx.fillText(`Days: ${totalDays}`, 10, 30);
       }
   
       function drawCreatureSprite(ctx, creature) {
@@ -294,10 +364,68 @@ let tempData = {
           return `rgba(${rgba[0]}, ${rgba[1]}, ${rgba[2]}, ${alpha})`;
         }
       }
+
+      
   
       run();
     }
   })();
+
+  document.addEventListener("DOMContentLoaded", function() {
+    const favicon = document.getElementById('favicon');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 32;  // Tamaño estándar del favicon
+    canvas.height = 32;
+
+    const SPRITE_WIDTH = 48;  // Ancho original del sprite
+    const SPRITE_HEIGHT = 48; // Alto original del sprite
+    const SPRITE_SCALE = (32 / SPRITE_WIDTH) * 1.2; // Escala para que se vea un 50% más grande
+
+    const fishSprites = new Image();
+    fishSprites.src = "/assets/imgs/fish_sprites.png";  // Asegúrate de que la ruta sea correcta
+
+    fishSprites.onload = function() {
+        let frame = 0;
+        const frameSpeed = 100; // Cambia este valor para controlar la velocidad de la animación (en milisegundos)
+
+        function animateFavicon() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Determinar el índice del frame actual basado en la animación (3 frames por dirección)
+            const spriteX = (frame % 3) * SPRITE_WIDTH;
+            const spriteY = 0; // Aquí asume que el primer sprite está en la fila superior
+
+            // Calcular la posición para centrar el sprite dentro del canvas
+            const offsetX = (canvas.width - SPRITE_WIDTH * SPRITE_SCALE) / 2;
+            const offsetY = (canvas.height - SPRITE_HEIGHT * SPRITE_SCALE) / 2;
+
+            // Dibujar el sprite actual en el canvas del favicon con escalado y centrado
+            ctx.drawImage(
+                fishSprites,
+                spriteX, spriteY,  // Posición x, y en la hoja de sprites
+                SPRITE_WIDTH, SPRITE_HEIGHT,  // Tamaño original del sprite
+                offsetX, offsetY,  // Posición ajustada en el canvas de destino
+                SPRITE_WIDTH * SPRITE_SCALE, SPRITE_HEIGHT * SPRITE_SCALE  // Tamaño escalado en el canvas de destino
+            );
+
+            // Actualizar el favicon con el canvas
+            favicon.href = canvas.toDataURL('image/png');
+
+            // Avanzar al siguiente frame
+            frame = (frame + 1) % 3;  // Hay 3 frames en la animación
+        }
+
+        // Iniciar la animación del favicon con setInterval
+        setInterval(animateFavicon, frameSpeed);  // Cambia la velocidad ajustando el valor de frameSpeed
+    };
+});
+
+
+
+
+
+
   
   
   
