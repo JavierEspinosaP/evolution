@@ -21,11 +21,11 @@ let tempData = {
   
     // Cargar y dibujar la imagen de fondo
     var backgroundImage = new Image();
-    backgroundImage.src = "bg.webp"; // Cambia esta ruta a la ruta de tu imagen
+    backgroundImage.src = "/assets/imgs/bg.webp"; // Cambia esta ruta a la ruta de tu imagen
   
     // Cargar la imagen de sprites
     var fishSprites = new Image();
-    fishSprites.src = "fish_sprites.png";
+    fishSprites.src = "/assets/imgs/fish_sprites.png";
   
     backgroundImage.onload = function () {
       ctx.drawImage(backgroundImage, 0, 0, width, height);
@@ -131,7 +131,9 @@ let tempData = {
       setupWebSocket();
   
       function setupWebSocket() {
-        const ws = new WebSocket("ws://localhost:3000");
+        // const ws = new WebSocket("ws://localhost:3000");
+        const ws = new WebSocket("wss://evolution-backend-0r4z.onrender.com");
+
   
         ws.onmessage = (event) => {
           try {
@@ -222,57 +224,65 @@ let tempData = {
       function drawCreatureSprite(ctx, creature) {
         const SPRITE_WIDTH = 48;  // Ancho original del sprite
         const SPRITE_HEIGHT = 48; // Alto original del sprite
-  
+    
         // Mapeo de colores a las columnas de sprites
         const COLOR_MAP = {
-          red: 0,
-          blue: 1,
-          yellow: 2,
-          green: 3,
+            red: 0,
+            blue: 1,
+            yellow: 2,
+            green: 3,
         };
-  
+    
         // Determinar la columna inicial para el color de la criatura
         const colorIndex = COLOR_MAP[creature.color] * 3;
-  
+    
         // Determinar el índice de la fila según la dirección
         let rowIndex;
-  
+    
         switch (creature.direction) {
-          case 'down':
-            rowIndex = 4;
-            break;
-          case 'left':
-            rowIndex = 5;
-            break;
-          case 'right':
-            rowIndex = 6;
-            break;
-          case 'up':
-            rowIndex = 7;
-            break;
+            case 'down':
+                rowIndex = 4;
+                break;
+            case 'left':
+                rowIndex = 5;
+                break;
+            case 'right':
+                rowIndex = 6;
+                break;
+            case 'up':
+                rowIndex = 7;
+                break;
         }
-  
+    
         // Ciclo de animación
         const frame = Math.floor(Date.now() / 100) % 3;  // 3 frames por dirección
-        const spriteX = (colorIndex + frame) * SPRITE_WIDTH;
-        const spriteY = rowIndex * SPRITE_HEIGHT;
-  
+        let spriteX = (colorIndex + frame) * SPRITE_WIDTH;
+        let spriteY = rowIndex * SPRITE_HEIGHT;
+    
+        // Ajustar la posición Y del sprite para los frames 2 y 3
+        if (frame === 1 && (creature.direction === 'down' || creature.direction === 'left' || creature.direction === 'right')) {
+            spriteY -=1;  // Desplazar 5px hacia abajo el sprite 2
+        } else if (frame === 2 && (creature.direction === 'down' || creature.direction === 'left' || creature.direction === 'right')) {
+            spriteY -=2; // Desplazar 10px hacia abajo el sprite 3
+        }
+    
         // Ajustar el tamaño del sprite según la cualidad 'size' de la criatura
         const scaledWidth = ((creature.size / SPRITE_WIDTH) * SPRITE_WIDTH) * 2;
         const scaledHeight = ((creature.size / SPRITE_HEIGHT) * SPRITE_HEIGHT) *2;
-  
+    
         ctx.drawImage(
-          fishSprites,
-          spriteX,
-          spriteY,
-          SPRITE_WIDTH,
-          SPRITE_HEIGHT,
-          creature.pos.x - scaledWidth / 2,
-          creature.pos.y - scaledHeight / 2,
-          scaledWidth,
-          scaledHeight
+            fishSprites,
+            spriteX,
+            spriteY,
+            SPRITE_WIDTH,
+            SPRITE_HEIGHT,
+            creature.pos.x - scaledWidth / 2,
+            creature.pos.y - scaledHeight / 2,
+            scaledWidth,
+            scaledHeight
         );
-      }
+    }
+    
   
       function convertColorToRgba(color, alpha = 1) {
         if (color.startsWith("rgb")) {
