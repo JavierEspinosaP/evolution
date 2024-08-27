@@ -1,6 +1,6 @@
 # <div align="center">Virtual Fish Tank - Frontend</div>
 
-Welcome to the Virtual Fish Tank project! This repository contains the frontend of an interactive fish tank simulation that allows users to observe virtual creatures in a dynamic environment. The frontend is designed to provide a visually appealing user interface, complete with background music and real-time updates from the backend server.
+Welcome to the Virtual Fish Tank project! This repository contains the frontend of an interactive fish tank simulation that allows users to observe virtual fishes in a dynamic environment. The frontend is designed to provide a visually appealing user interface, complete with background music and real-time updates from the backend server.
 
 ## <div align="center">Table of Contents</div>
 
@@ -14,7 +14,7 @@ Welcome to the Virtual Fish Tank project! This repository contains the frontend 
 
 ## <div align="center">Introduction</div>
 
-The Virtual Fish Tank project is an interactive simulation where users can observe virtual creatures in a simulated environment. The frontend handles the rendering of the simulation, user controls, and audio management. It connects to a backend server to receive real-time updates on the state of the simulation, ensuring that users are always viewing the most current state of the virtual tank.
+The Virtual Fish Tank project is an interactive simulation where users can observe virtual fishes in a simulated environment. The frontend handles the rendering of the simulation, user controls, and audio management. It connects to a backend server to receive real-time updates on the state of the simulation, ensuring that users are always viewing the most current state of the virtual tank.
 
 
 <strong>You can view the live simulation at the following link:</strong>
@@ -23,7 +23,7 @@ The Virtual Fish Tank project is an interactive simulation where users can obser
 
 ## <div align="center">Features</div>
 
-- Interactive Simulation: Observe creatures as they move, grow, and interact with each other and their environment.
+- Interactive Simulation: Observe fishes as they move, grow, and interact with each other and their environment.
 - Responsive Design: The UI adapts to various screen sizes and devices, providing a seamless experience across platforms.
 - Dynamic Background Music: The simulation includes background music that users can control, enhancing the immersive experience.
 - Real-time Updates: The frontend communicates with the backend server to receive and display real-time updates on the simulation’s state.
@@ -60,9 +60,7 @@ virtual-fish-tank-frontend/
 ├── index.html          # The main HTML file that includes the structure of the web page
 ├── style.css           # Styles for the simulation UI
 ├── music.js            # Handles background music logic and controls
-├── script.js           # Main script for managing the simulation, rendering, and user interactions
-├── classes.js          # Defines the classes for creatures, food, and other entities
-├── logic.js            # Contains the logic for updating the state of the simulation
+├── script.js           # Main script for managing the updates that comes to the backend
 ├── assets/             # Directory containing images, audio files, and other assets
 │   ├── imgs/
 │   └── music/
